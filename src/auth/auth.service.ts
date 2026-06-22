@@ -150,9 +150,9 @@ export class AuthService {
   private async generateTokens(user: User) {
     const payload = { sub: user.id, email: user.email, role: user.role };
 
-    const accessToken = this.jwtService.sign(payload);
+    const accessToken = this.jwtService.sign(payload); // create access token
 
-    const refreshTokenValue = uuidv4();
+    const refreshTokenValue = uuidv4(); // random UUID string
     const refreshExpiresIn =
       this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d';
 

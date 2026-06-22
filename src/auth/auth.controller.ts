@@ -6,12 +6,14 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Res,
+  Req,
 } from '@nestjs/common';
+import type { Response, Request } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -24,29 +26,55 @@ export class AuthController {
 
   @Post('register')
   @ApiOperation({ summary: 'Register a new user' })
-  async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.register(dto);
+    this.setTokenCookies(res, result.accessToken, result.refreshToken);
+    return { user: result.user };
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login with email and password' })
-  async login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.login(dto);
+    this.setTokenCookies(res, result.accessToken, result.refreshToken);
+    return { user: result.user };
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Refresh access token' })
-  async refresh(@Body() dto: RefreshTokenDto) {
-    return this.authService.refresh(dto.refreshToken);
+  @ApiOperation({ summary: 'Refresh access token using cookie' })
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const cookies = req.cookies as Record<string, string> | undefined;
+    const refreshToken = cookies?.refreshToken;
+    if (!refreshToken) {
+      return { message: 'No refresh token provided' };
+    }
+    const result = await this.authService.refresh(refreshToken);
+    this.setTokenCookies(res, result.accessToken, result.refreshToken);
+    return { user: result.user };
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Logout and revoke refresh token' })
-  async logout(@Body() dto: RefreshTokenDto) {
-    return this.authService.logout(dto.refreshToken);
+  @ApiOperation({ summary: 'Logout and clear cookies' })
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const cookies = req.cookies as Record<string, string> | undefined;
+    const refreshToken = cookies?.refreshToken;
+    if (refreshToken) {
+      await this.authService.logout(refreshToken);
+    }
+    this.clearTokenCookies(res);
+    return { message: 'Logged out successfully' };
   }
 
   @Get('profile')
@@ -67,5 +95,30 @@ export class AuthController {
     @Body() dto: ChangePasswordDto,
   ) {
     return this.authService.changePassword(user.id, dto);
+  }
+
+  private setTokenCookies(
+    res: Response,
+    accessToken: string,
+    refreshToken: string,
+  ) {
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 15 * 60 * 1000,
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      sameSite: 'strict',
+      path: '/api/v1/auth',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+  }
+
+  private clearTokenCookies(res: Response) {
+    res.clearCookie('accessToken', { path: '/' });
+    res.clearCookie('refreshToken', { path: '/api/v1/auth' });
   }
 }
