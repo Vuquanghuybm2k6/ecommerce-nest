@@ -19,6 +19,7 @@ import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { MailService } from '../mail/mail.service';
 
 @Injectable()
@@ -219,6 +220,31 @@ export class AuthService {
     });
 
     return { token };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const passwordReset = await this.passwordResetRepository.findOne({
+      where: { token: dto.token },
+      relations: ['user'],
+    });
+
+    if (!passwordReset) {
+      throw new BadRequestException('Invalid reset token');
+    }
+
+    if (!passwordReset.tokenExpiresAt || new Date() > passwordReset.tokenExpiresAt) {
+      throw new BadRequestException('Reset token has expired');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+    await this.usersRepository.update(passwordReset.userId, { passwordHash });
+
+    await this.refreshTokensRepository.update(
+      { userId: passwordReset.userId },
+      { isRevoked: true },
+    );
+
+    return { message: 'Password reset successfully' };
   }
 
   private async generateTokens(user: User) {
