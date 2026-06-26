@@ -29,6 +29,12 @@ export class PasswordReset {
   @Column({ name: 'is_used', default: false })
   isUsed!: boolean;
 
+  @Column({ name: 'token', length: 500, nullable: true })
+  token!: string | null;
+
+  @Column({ name: 'token_expires_at', type: 'timestamp', nullable: true })
+  tokenExpiresAt!: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }

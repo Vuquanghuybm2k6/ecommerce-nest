@@ -18,6 +18,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { MailService } from '../mail/mail.service';
 
 @Injectable()
@@ -185,6 +186,39 @@ export class AuthService {
     }
 
     return { message: 'If the email exists, a password reset OTP has been sent.' };
+  }
+
+  async verifyOtp(dto: VerifyOtpDto) {
+    const user = await this.usersRepository.findOne({
+      where: { email: dto.email },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Invalid email or OTP');
+    }
+
+    const passwordReset = await this.passwordResetRepository.findOne({
+      where: { userId: user.id, otp: dto.otp, isUsed: false },
+    });
+
+    if (!passwordReset) {
+      throw new BadRequestException('Invalid email or OTP');
+    }
+
+    if (new Date() > passwordReset.expiresAt) {
+      throw new BadRequestException('OTP has expired');
+    }
+
+    const token = uuidv4();
+    const tokenExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await this.passwordResetRepository.update(passwordReset.id, {
+      isUsed: true,
+      token,
+      tokenExpiresAt,
+    });
+
+    return { token };
   }
 
   private async generateTokens(user: User) {
