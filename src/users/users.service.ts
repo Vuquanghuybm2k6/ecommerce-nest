@@ -10,11 +10,14 @@ import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
-@Injectable()
+@Injectable() // khi có @Injectable, nestjs sẽ tọa object của class này, quản lý vòng đời của object, tự động inject các dependency
 export class UsersService {
   constructor(
-    @InjectRepository(User)
-    private readonly usersRepository: Repository<User>,
+    @InjectRepository(User) // đưa repository của entity User vào trong này, cái này đại diện cho bảng user
+    private readonly usersRepository: Repository<User>, // private nghĩa là chỉ được dùng trong class , 
+    // readonly: sau khi gán lần đầu thì k được gán lại 
+    // dấu :  là khai báo kiểu dữ liệu
+    // Repository<User> là generic của typeORM nghĩa là Repository dùng để thao tác với Entity User.
   ) {}
 
   async create(createUserDto: CreateUserDto) {

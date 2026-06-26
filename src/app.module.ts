@@ -7,6 +7,7 @@ import { ProductsModule } from './products/products.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
+import { MailModule } from './mail/mail.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -25,6 +26,7 @@ import { CategoriesModule } from './categories/categories.module';
     }),
     ProductsModule,
     UsersModule,
+     MailModule,
      AuthModule,
      CategoriesModule,
   ],
